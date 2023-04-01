@@ -4,14 +4,14 @@ using UnityEngine;
 
 public class RoomGenerator : MonoBehaviour
 {
-    public class Room
+    public class Room // Custom class that defines the properties of a room.
     {
         public bool visited = false;
         public bool[] status = new bool[4];
     }
 
     [System.Serializable]
-    public class RoomData
+    public class RoomData // Contains the room data.
     {
         public GameObject room;
         public Vector2Int minPosition;
@@ -21,7 +21,7 @@ public class RoomGenerator : MonoBehaviour
 
         public int SpawnProbability(int x, int y) // Calculates the probability of spawning the room at a given position.
         {
-            // 0 = cannot spawn 1 = can spawn 2 = HAS to spawn.
+            // 0 = cannot spawn, 1 = can spawn, 2 = HAS to spawn.
 
             if (x >= minPosition.x && x <= maxPosition.x && y >= minPosition.y && y <= maxPosition.y)
             {
@@ -47,54 +47,56 @@ public class RoomGenerator : MonoBehaviour
     // Creates the actual 3D rooms based on the dungeon layout created by the DungeonGenerator().
     void GenerateDungeon()
     {
-        //  Loops through each position in the grid, and for each visited room, it chooses a room type to instantiate at that position.
-        for (int i = 0; i < size.x; i++) 
+        // Loops through each position in the grid and instantiates the appropriate room type.
+        int gridLength = size.x * size.y;
+        for (int i = 0; i < gridLength; i++)
         {
-            for (int j = 0; j < size.y; j++)
+            Room currentRoom = board[i]; // Get the current room at this position.
+
+            if (currentRoom.visited)
             {
-                Room currentRoom = board[(i + j * size.x)]; // Get the current room at this position.
+                int x = i % size.x; // Calculate the x position based on the current index.
+                int y = i / size.x; // Calculate the y position based on the current index.
 
-                if (currentRoom.visited)
+                int randomRoom = -1;
+                List<int> availableRooms = new List<int>();
+
+                for (int j = 0; j < rooms.Length; j++) // Loops through each possible room in the list.
                 {
-                    int randomRoom = -1;
-                    List<int> availableRooms = new List<int>();
+                    int p = rooms[j].SpawnProbability(x, y); // Calculates the probability of spawning the room at this position.
 
-                    for (int k = 0; k < rooms.Length; k++) // Loops through each possible room in the list.
+                    // Checks the importance of the room, if it can or must spawn.
+                    if (p == 2)
                     {
-                        int p = rooms[k].SpawnProbability(i, j); // Calculates the probability of spawning the room at this position.
-
-                        // Checks the importance of the room, if it can or must spawn.
-                        if (p == 2)
-                        {
-                            randomRoom = k;
-                            break;
-                        }
-                        else if (p == 1)
-                        {
-                            availableRooms.Add(k);
-                        }
+                        randomRoom = j;
+                        break;
                     }
-
-                    if (randomRoom == -1) // If no room type is mandatory at this position.
+                    else if (p == 1)
                     {
-                        // If there are available room types that can spawn at this position, choose one randomly.
-                        if (availableRooms.Count > 0)
-                        {
-                            randomRoom = availableRooms[Random.Range(0, availableRooms.Count)];
-                        }
-                        else
-                        {
-                            randomRoom = 0;
-                        }
+                        availableRooms.Add(j);
                     }
-
-                    // Instantiate the chosen room type at the current position based on the RoomBehaviour script.
-                    var newRoom = Instantiate(rooms[randomRoom].room, new Vector3(i * offset.x, 0, -j * offset.y), Quaternion.identity, transform).GetComponent<RoomBehaviour>();
-                    newRoom.UpdateRoom(currentRoom.status);
-                    newRoom.name += " " + i + "-" + j;
                 }
+
+                if (randomRoom == -1) // If no room type is mandatory at this position.
+                {
+                    // If there are available room types that can spawn at this position, choose one randomly.
+                    if (availableRooms.Count > 0)
+                    {
+                        randomRoom = availableRooms[Random.Range(0, availableRooms.Count)];
+                    }
+                    else
+                    {
+                        randomRoom = 0;
+                    }
+                }
+
+                // Instantiate the chosen room type at the current position based on the RoomBehaviour script.
+                var newRoom = Instantiate(rooms[randomRoom].room, new Vector3(x * offset.x, 0, -y * offset.y), Quaternion.identity, transform).GetComponent<RoomBehaviour>();
+                newRoom.UpdateRoom(currentRoom.status);
+                newRoom.name += " " + x + "-" + y;
             }
         }
+
 
     }
 
@@ -118,7 +120,7 @@ public class RoomGenerator : MonoBehaviour
         int k = 0;
 
         // Runs the algorithm until it has visited all rooms or has reached a maximum number of iterations.
-        while (k < 1000) // Addapt the value if a bigger dungeon size is needed.
+        while (k < 1000) // This ensures that the loop will eventually stop and wont crush the application. Addapt the value if a bigger dungeon size is needed.
         {
             k++;
 
@@ -188,7 +190,7 @@ public class RoomGenerator : MonoBehaviour
             }
 
         }
-        GenerateDungeon(); 
+        GenerateDungeon();
     }
 
     // Checks a room's neighbors to see which ones are not visited.
